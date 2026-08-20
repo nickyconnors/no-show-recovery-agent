@@ -1,0 +1,25 @@
+{
+  "name": "no-show-recovery-agent",
+  "version": "1.0.0",
+  "description": "AI Agent for barbershops to reduce the amount of loss from no shows.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nickyconnors/no-show-recovery-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/nickyconnors/no-show-recovery-agent/issues"
+  },
+  "homepage": "https://github.com/nickyconnors/no-show-recovery-agent#readme",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "node-fetch": "^3.3.2"
+  }
+}
