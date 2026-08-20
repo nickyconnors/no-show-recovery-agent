@@ -4,7 +4,9 @@
   "description": "AI Agent for barbershops to reduce the amount of loss from no shows.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:square": "node src/test-square.js",
+    "test:customers": "node src/test-customers.js"
   },
   "repository": {
     "type": "git",

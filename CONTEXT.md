@@ -93,11 +93,42 @@ Important gaps vs. what the app needs:
 No end_at field — must calculate: end_at = start_at + duration_minutes (in JS: new Date(new Date(start_at).getTime() + duration_minutes \* 60000))
 No customer name/phone — only customer_id. Requires a separate call to the Customers API: GET /v2/customers/{customer_id} to resolve name and phone number.
 No readable service name — only service_variation_id. Requires a separate call to the Catalog API (GET /v2/catalog/object/{service_variation_id}) to resolve a readable name like "Haircut."
+Build progress
+
+src/square.js — DONE. Exports getBookings({ startAtMin, startAtMax }). Handles the Accept header,
+start_at_min/start_at_max query params (defaults startAtMin to 30 days ago if omitted), the
+"not onboarded to Appointments" error with an inline fix message, and logs a warning (no
+implementation yet) if a pagination cursor comes back. Each returned booking also has end_at
+calculated (start_at + appointment_segments[0].duration_minutes) before it's returned — bookings
+with no segments get end_at: null and a logged warning. Verified against the live sandbox on
+2026-08-19 — returned 2 real bookings with correct end_at values.
+
+Test it in isolation: npm run test:square (runs src/test-square.js).
+
+src/customers.js — DONE. Exports getCustomer(customerId) → { name, phone }, calling
+GET /v2/customers/{customer_id}. name is given_name + family_name joined (null if missing), phone
+is phone_number (null if missing). Verified against the live sandbox on 2026-08-19 — resolved the
+sandbox test customer to name "Jon Wu", but that customer has no phone_number on file, so
+notification testing will need either a phone number added in the sandbox dashboard or a
+null-phone fallback path.
+
+Test it in isolation: npm run test:customers [customer_id] (runs src/test-customers.js, defaults
+to the known sandbox customer id if none passed).
+
+Minor noise: dotenv (v17) prints a rotating self-promotional "tip" line to stdout on every
+config() call (e.g. pointing at unfamiliar third-party domains). Harmless, but can be silenced
+with dotenv.config({ quiet: true }) if it gets annoying.
+
+Architecture decision: no node-fetch. The package.json listed node-fetch as a dependency, but
+node-fetch v3 is ESM-only while this project is "type": "commonjs" — requiring it would throw.
+Node 24 (the version in use) has a native global fetch, so src/square.js and src/customers.js use
+that directly and node-fetch can eventually be removed from package.json.
+
 Not yet built (next steps)
-Node.js project scaffold (this repo)
-Square API client: fetch bookings with correct headers/params
-Calculate end_at from start_at + duration
-Customer lookup call → resolve name/phone
+Node.js project scaffold (this repo) — DONE
+Square API client: fetch bookings with correct headers/params — DONE (src/square.js)
+Calculate end_at from start_at + duration — DONE (folded into src/square.js)
+Customer lookup call → resolve name/phone — DONE (src/customers.js)
 Catalog lookup call → resolve service name
 No-show filter (logic already defined above)
 Claude API call using the proven prompt
