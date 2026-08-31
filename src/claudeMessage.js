@@ -6,6 +6,15 @@ const ANTHROPIC_VERSION = '2023-06-01';
 const MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 150;
 
+// Must match the sample message text submitted in the Twilio Campaign Registry
+// filing byte-for-byte — appended in code (not left to the prompt) since LLM
+// output isn't guaranteed verbatim across generations. See CONTEXT.md.
+const OPT_OUT_TEXT = 'Reply STOP to opt out, HELP for help.';
+
+// Full SMS must stay under 300 chars including the opt-out suffix (~38 chars
+// with its separator), so Claude gets a tighter budget with room to spare.
+const GENERATED_MESSAGE_CHAR_LIMIT = 240;
+
 const { ANTHROPIC_API_KEY } = process.env;
 
 function assertConfigured() {
@@ -29,8 +38,8 @@ async function generateNoShowMessage({ customer_name, service_name, start_at }) 
   const formattedStartAt = formatLocalDateTime(start_at);
 
   const prompt =
-    `Write a short, friendly SMS (under 300 characters) to a barbershop customer ` +
-    `who missed their appointment. Their name is ${customer_name}, they booked a ` +
+    `Write a short, friendly SMS (under ${GENERATED_MESSAGE_CHAR_LIMIT} characters) to a barbershop ` +
+    `customer who missed their appointment. Their name is ${customer_name}, they booked a ` +
     `${service_name}, and it was scheduled for ${formattedStartAt}. Invite them to rebook ` +
     `this week. Keep it casual and warm, not corporate. Only output the SMS ` +
     `text, nothing else.`;
@@ -73,7 +82,18 @@ async function generateNoShowMessage({ customer_name, service_name, start_at }) 
 
   console.log(`[claudeMessage] Generated message (${messageText.length} chars): "${messageText}"`);
 
-  return messageText;
+  const finalMessage = `${messageText} ${OPT_OUT_TEXT}`;
+
+  console.log(`[claudeMessage] Appended opt-out text: "${OPT_OUT_TEXT}"`);
+  console.log(`[claudeMessage] Final message (${finalMessage.length} chars): "${finalMessage}"`);
+
+  if (finalMessage.length > 300) {
+    console.warn(
+      `[claudeMessage] WARNING: final message is ${finalMessage.length} chars, over the 300-char SMS limit.`
+    );
+  }
+
+  return finalMessage;
 }
 
-module.exports = { generateNoShowMessage, MODEL, MAX_TOKENS };
+module.exports = { generateNoShowMessage, MODEL, MAX_TOKENS, OPT_OUT_TEXT, GENERATED_MESSAGE_CHAR_LIMIT };

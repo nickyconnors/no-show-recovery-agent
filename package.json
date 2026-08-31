@@ -12,7 +12,9 @@
     "test:claude": "node src/test-claude.js",
     "test:notify": "node src/test-notify.js",
     "test:format-local-date-time": "node src/test-format-local-date-time.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "start:scheduled": "node src/scheduler.js",
+    "test:error-alert": "node src/test-error-alert.js"
   },
   "repository": {
     "type": "git",
@@ -28,6 +30,7 @@
   "homepage": "https://github.com/nickyconnors/no-show-recovery-agent#readme",
   "dependencies": {
     "dotenv": "^17.4.2",
+    "node-cron": "^4.6.0",
     "node-fetch": "^3.3.2",
     "nodemailer": "^9.0.6"
   }

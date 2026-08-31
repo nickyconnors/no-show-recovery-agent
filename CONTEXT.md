@@ -201,6 +201,79 @@ message inviting rebooking, well under the 300 char limit.
 Test it in isolation: npm run test:claude (runs src/test-claude.js against hardcoded sample data —
 makes a real Anthropic API call, no Square data needed).
 
+UPDATE 2026-08-31 — SMS opt-out compliance (Twilio Campaign Registry): every outgoing message must
+end with the exact opt-out language submitted in the Twilio Campaign Registry filing
+("Reply STOP to opt out, HELP for help."). This is appended in code (OPT_OUT_TEXT constant in
+src/claudeMessage.js), NOT left to the Claude prompt to generate. Reasoning: LLM output isn't
+guaranteed verbatim across generations — Claude could easily paraphrase ("Text STOP to
+unsubscribe", "Reply HELP for assistance or STOP to opt out", etc.), and even a slight wording
+drift from what's on file with Twilio is a compliance risk once real SMS sending goes live. Code
+guarantees byte-for-byte match every time regardless of what the model produces.
+
+To make room, Claude is now asked for a message under GENERATED_MESSAGE_CHAR_LIMIT (240 chars,
+down from 300) — the opt-out suffix plus its separator space is ~38 chars, so 240 + 38 = 278,
+comfortably under the overall 300-char SMS limit even if Claude runs a bit long. generateNoShowMessage()
+logs the generated part, the appended part, and the final combined length separately, and logs a
+warning (doesn't throw) if the final message ever exceeds 300 chars.
+
+Verified live on 2026-08-31: generated message + suffix = 224 chars total, ends with the exact
+opt-out string, both checks passing in src/test-claude.js.
+
+Test it in isolation: npm run test:claude — now also asserts (1) the message ends with the exact
+OPT_OUT_TEXT string and (2) total length stays under 300 chars, failing loudly (exit 1) if either
+check doesn't hold.
+
+src/pipeline.js — DONE, added 2026-08-31. The full pipeline logic (previously inline in
+src/index.js) extracted into runPipeline(), so both a one-off run (src/index.js) and the recurring
+scheduler (src/scheduler.js) share the exact same code path — no duplicated logic. Adds a dedup
+stage (Stage 2.5) between the no-show filter and sending: loads already-notified booking ids via
+src/notifiedBookings.js, splits flagged no-shows into "new" (not yet notified) vs "already
+notified" (skip), and only processes the new ones. After each successful send, marks that
+booking id as notified immediately (not batched at the end), so a crash partway through a run
+doesn't lose track of what was already sent.
+
+src/notifiedBookings.js — DONE, added 2026-08-31. Exports loadNotifiedBookingIds() and
+markBookingNotified(bookingId, notifiedIds), backed by a local JSON file (notified-bookings.json,
+gitignored — it's runtime state, not source) at the project root: a flat array of booking id
+strings. Simple by design — single process, low volume, no concurrent writers — so no database or
+locking needed for now. This is what prevents the scheduled runner from re-sending the same
+recovery message to a customer every time it re-fetches a booking that was already handled.
+
+src/index.js — updated 2026-08-31. Now a thin one-off wrapper: just calls runPipeline() once and
+exits. Run with npm start.
+
+src/scheduler.js — DONE, added 2026-08-31. Runs the pipeline on an interval via node-cron (new
+dependency). Default schedule: every 15 minutes ('*/15 * * * *'), overridable via CRON_SCHEDULE in
+.env. Runs once immediately on startup (so you see it working right away instead of waiting for the
+first interval), then on the cron schedule indefinitely. Each run is wrapped in try/catch so a
+single failed run (e.g. a transient Square/Anthropic/Gmail API error) logs the error and waits for
+the next scheduled tick instead of crashing the whole long-running process — important since this
+is meant to run unattended. Logs a numbered "Run #N starting/finished" banner around each tick.
+
+Run it: npm run start:scheduled (runs src/scheduler.js — long-running process, Ctrl+C to stop).
+
+src/errorAlert.js — DONE, added 2026-08-31. Exports sendErrorAlert(error, context), which emails a
+failure alert via the existing Gmail stand-in channel (src/notify.js) to GMAIL_USER itself — this
+is an alert to the operator (Nick), not a customer-facing message. Body includes the error message
+and full stack trace. Wired into both entry points: src/index.js's one-off run and
+src/scheduler.js's per-tick catch block (each scheduled run failing independently, not crashing the
+whole long-running process — see src/scheduler.js entry above). If the alert email itself fails to
+send (e.g. Gmail is down too), that failure is caught and logged rather than thrown, so a broken
+alerting path can't crash the pipeline on top of the original failure. If GMAIL_USER isn't
+configured, logs an error and does nothing rather than throwing.
+
+Test it in isolation: npm run test:error-alert (runs src/test-error-alert.js, sends a real alert
+email with a simulated error). Also verified with an actual failure on 2026-08-31: ran npm start
+with a deliberately invalid SQUARE_ACCESS_TOKEN, got a real 401 from Square, and received a failure
+alert email with the correct error message and stack trace.
+
+Verified end-to-end on 2026-08-31: ran npm start twice back-to-back against the live sandbox — run
+1 found the NO_SHOW-flagged booking (hrf23hhkf1awek), sent the recovery email, and recorded it in
+notified-bookings.json; run 2 re-fetched the same booking (still flagged NO_SHOW by Square) but
+correctly skipped it ("already notified in a previous run — skipping", 0 sent). Also smoke-tested
+npm run start:scheduled — printed the scheduler banner, ran the pipeline immediately, correctly
+skipped the already-notified booking, and sat waiting for the next 15-minute tick as expected.
+
 src/formatEndAt.js — DONE, added 2026-08-30. Exports formatEndAt(isoString, { timeZone, now }) →
 human-readable local string like "today at 11:45am" or "Wednesday at 11:45am". Hardcoded default
 timeZone: America/Los_Angeles (the business's actual location for now — make configurable later
@@ -287,8 +360,8 @@ Catalog lookup call → resolve service name — DONE (src/catalog.js)
 No-show filter (logic already defined above) — DONE (src/noShowFilter.js)
 Claude API call using the proven prompt — DONE (src/claudeMessage.js)
 Notification send — Gmail for now (stand-in), swap to Twilio SMS once phone number verification clears (~10 day wait from Twilio) — DONE (src/notify.js)
-Full pipeline wiring (fetch → filter → resolve → generate → send) — DONE (src/index.js), verified end-to-end against live sandbox on 2026-08-30
-Scheduling — run this on an interval (start with manual runs, then decide on cron/serverless hosting)
+Full pipeline wiring (fetch → filter → resolve → generate → send) — DONE (src/pipeline.js, extracted from src/index.js on 2026-08-31), verified end-to-end against live sandbox
+Scheduling — run this on an interval — DONE (src/scheduler.js, node-cron, every 15 min by default), with duplicate-notification protection (src/notifiedBookings.js) — verified 2026-08-31
 Eventually: swap Sandbox for Production Square credentials once tested
 Credentials needed (store in .env, never commit)
 SQUARE_ACCESS_TOKEN=
