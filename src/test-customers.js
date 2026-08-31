@@ -9,11 +9,12 @@ const customerId = process.argv[2] || '3S86WTRVS368NS23N8JS29DDCM';
   console.log(`Using customer_id: ${customerId}`);
 
   try {
-    const { name, phone } = await getCustomer(customerId);
+    const { name, phone, email } = await getCustomer(customerId);
 
     console.log('=== Customer summary ===');
     console.log(`name: ${name}`);
     console.log(`phone: ${phone}`);
+    console.log(`email: ${email}`);
 
     console.log('=== Test complete: Customers module is working ===');
   } catch (err) {

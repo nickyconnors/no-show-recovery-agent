@@ -6,7 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:square": "node src/test-square.js",
-    "test:customers": "node src/test-customers.js"
+    "test:customers": "node src/test-customers.js",
+    "test:catalog": "node src/test-catalog.js",
+    "test:no-show-filter": "node src/test-no-show-filter.js",
+    "test:claude": "node src/test-claude.js",
+    "test:notify": "node src/test-notify.js",
+    "test:format-local-date-time": "node src/test-format-local-date-time.js",
+    "start": "node src/index.js"
   },
   "repository": {
     "type": "git",
@@ -22,6 +28,7 @@
   "homepage": "https://github.com/nickyconnors/no-show-recovery-agent#readme",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "node-fetch": "^3.3.2"
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^9.0.6"
   }
 }

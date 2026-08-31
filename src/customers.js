@@ -14,7 +14,7 @@ function assertConfigured() {
 }
 
 /**
- * Fetches a customer from Square's Customers API and returns their name and phone number.
+ * Fetches a customer from Square's Customers API and returns their name, phone, and email.
  * Bookings only carry a customer_id — this resolves it to something a message can use.
  * @param {string} customerId
  */
@@ -58,6 +58,7 @@ async function getCustomer(customerId) {
 
   const name = [customer.given_name, customer.family_name].filter(Boolean).join(' ') || null;
   const phone = customer.phone_number || null;
+  const email = customer.email_address || null;
 
   if (!name) {
     console.log(`[customers] Customer ${customerId} has no given_name/family_name on file.`);
@@ -65,10 +66,13 @@ async function getCustomer(customerId) {
   if (!phone) {
     console.log(`[customers] Customer ${customerId} has no phone_number on file.`);
   }
+  if (!email) {
+    console.log(`[customers] Customer ${customerId} has no email_address on file.`);
+  }
 
-  console.log(`[customers] Resolved customer ${customerId}: name="${name}", phone="${phone}"`);
+  console.log(`[customers] Resolved customer ${customerId}: name="${name}", phone="${phone}", email="${email}"`);
 
-  return { name, phone };
+  return { name, phone, email };
 }
 
 module.exports = { getCustomer, SQUARE_VERSION };
